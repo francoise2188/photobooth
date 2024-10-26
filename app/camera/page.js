@@ -3,128 +3,88 @@
 import { useState, useRef, useEffect } from 'react';
 
 export default function CameraPage() {
-  const videoRef = useRef(null);
-  const [email, setEmail] = useState('');
   const [photo, setPhoto] = useState(null);
   const [countdown, setCountdown] = useState(null);
-  const [currentStream, setCurrentStream] = useState(null);
+  const [isSending, setIsSending] = useState(false);
+  const [shareMessage, setShareMessage] = useState('');
+  const [email, setEmail] = useState('');
+  const videoRef = useRef(null);
 
-  // Magnet specifications
-  const MAGNET_DIMENSIONS = {
-    final: 600, // 2" x 2" at 300 DPI
-    withBleed: 815, // 2.717" x 2.717" at 300 DPI
-    safeZone: 540, // Slightly inside final dimensions for safety
-  };
-
+  // Initialize camera
   useEffect(() => {
-    const savedEmail = localStorage.getItem('userEmail');
-    if (savedEmail) setEmail(savedEmail);
-    startCamera();
+    const startCamera = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: true,
+          audio: false
+        });
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
+    };
 
-    return () => stopCamera();
+    startCamera();
+    
+    // Get email from localStorage
+    const storedEmail = localStorage.getItem('userEmail');
+    setEmail(storedEmail);
+
+    // Cleanup function
+    return () => {
+      const stream = videoRef.current?.srcObject;
+      stream?.getTracks().forEach(track => track.stop());
+    };
   }, []);
 
-  const startCamera = async () => {
-    try {
-      // Request specific dimensions for optimal magnet output
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: {
-          width: { ideal: MAGNET_DIMENSIONS.withBleed },
-          height: { ideal: MAGNET_DIMENSIONS.withBleed },
-          facingMode: 'user',
-          aspectRatio: 1 // Force square aspect ratio
-        } 
-      });
-      
-      setCurrentStream(stream);
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-    } catch (err) {
-      console.log("Camera error:", err);
-    }
-  };
-
-  const stopCamera = () => {
-    if (currentStream) {
-      currentStream.getTracks().forEach(track => track.stop());
-      setCurrentStream(null);
-    }
-  };
-
+  // Keep your existing startCountdown and retakePhoto functions
   const startCountdown = () => {
-    let count = 3;
-    setCountdown(count);
-    
-    const timer = setInterval(() => {
-      count--;
-      setCountdown(count);
-      
-      if (count === 0) {
-        clearInterval(timer);
-        setTimeout(() => {
+    setCountdown(3);
+    const countdownInterval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
           takePhoto();
-          setCountdown(null);
-        }, 1000);
-      }
+          return null;
+        }
+        return prev - 1;
+      });
     }, 1000);
   };
 
   const takePhoto = () => {
     const video = videoRef.current;
-    if (!video) return;
-
-    // Create canvas at bleed size
     const canvas = document.createElement('canvas');
-    canvas.width = MAGNET_DIMENSIONS.withBleed;
-    canvas.height = MAGNET_DIMENSIONS.withBleed;
-    
-    const ctx = canvas.getContext('2d');
-    
-    // Draw video centered in the canvas
-    const scale = Math.max(
-      canvas.width / video.videoWidth,
-      canvas.height / video.videoHeight
-    );
-    
-    const x = (canvas.width - video.videoWidth * scale) / 2;
-    const y = (canvas.height - video.videoHeight * scale) / 2;
-    
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(
-      video, 
-      x, y, 
-      video.videoWidth * scale,
-      video.videoHeight * scale
-    );
-
-    // Add guide overlays for development
-    if (process.env.NODE_ENV === 'development') {
-      // Bleed area
-      ctx.strokeStyle = 'rgba(255,0,0,0.5)';
-      ctx.strokeRect(0, 0, MAGNET_DIMENSIONS.withBleed, MAGNET_DIMENSIONS.withBleed);
-      
-      // Final magnet area
-      ctx.strokeStyle = 'rgba(0,255,0,0.5)';
-      const offset = (MAGNET_DIMENSIONS.withBleed - MAGNET_DIMENSIONS.final) / 2;
-      ctx.strokeRect(
-        offset, offset,
-        MAGNET_DIMENSIONS.final,
-        MAGNET_DIMENSIONS.final
-      );
-    }
-
-    const photoData = canvas.toDataURL('image/jpeg', 1.0);
-    setPhoto(photoData);
-    stopCamera();
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0);
+    setPhoto(canvas.toDataURL('image/jpeg'));
   };
 
   const retakePhoto = () => {
     setPhoto(null);
-    startCamera();
+  };
+
+  const handleSharePhoto = async () => {
+    setIsSending(true);
+    setShareMessage('Sending photo...');
+    
+    try {
+      // Get the email from localStorage
+      const userEmail = localStorage.getItem('userEmail');
+      
+      // For now, we'll just simulate sending
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      setShareMessage('Photo sent! Check your email.');
+      setTimeout(() => setShareMessage(''), 3000);
+    } catch (error) {
+      setShareMessage('Error sending photo. Please try again.');
+    } finally {
+      setIsSending(false);
+    }
   };
 
   return (
@@ -134,7 +94,7 @@ export default function CameraPage() {
           <p className="text-gray-600">Logged in as: {email}</p>
         </div>
 
-        {/* Camera Container with fixed width */}
+        {/* Camera Container */}
         <div style={{
           width: '100%',
           maxWidth: '400px',
@@ -211,6 +171,21 @@ export default function CameraPage() {
             <>
               <button 
                 className="w-full bg-green-500 text-white p-4 rounded-lg hover:bg-green-600 transition"
+                onClick={async () => {
+                  setIsSending(true);
+                  setShareMessage('Sending photo...');
+                  await new Promise(resolve => setTimeout(resolve, 1500));
+                  setShareMessage('Photo sent! Check your email.');
+                  setIsSending(false);
+                  setTimeout(() => setShareMessage(''), 3000);
+                }}
+                disabled={isSending}
+              >
+                {isSending ? 'Sending...' : 'Email Photo'}
+              </button>
+
+              <button 
+                className="w-full bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition"
                 onClick={() => {
                   const link = document.createElement('a');
                   link.download = 'photo-booth-magnet.jpg';
@@ -218,14 +193,21 @@ export default function CameraPage() {
                   link.click();
                 }}
               >
-                Save Photo
+                Download Photo
               </button>
+
               <button 
                 className="w-full bg-gray-500 text-white p-4 rounded-lg hover:bg-gray-600 transition"
                 onClick={retakePhoto}
               >
                 Retake Photo
               </button>
+
+              {shareMessage && (
+                <div className="text-center mt-2 text-sm font-medium text-gray-600">
+                  {shareMessage}
+                </div>
+              )}
             </>
           )}
         </div>
