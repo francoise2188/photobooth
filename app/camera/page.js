@@ -10,7 +10,7 @@ export default function CameraPage() {
   const [email, setEmail] = useState('');
   const videoRef = useRef(null);
 
-  // Initialize camera
+  // Initialize camera and get email
   useEffect(() => {
     const startCamera = async () => {
       try {
@@ -32,14 +32,13 @@ export default function CameraPage() {
     const storedEmail = localStorage.getItem('userEmail');
     setEmail(storedEmail);
 
-    // Cleanup function
+    // Cleanup
     return () => {
       const stream = videoRef.current?.srcObject;
       stream?.getTracks().forEach(track => track.stop());
     };
   }, []);
 
-  // Keep your existing startCountdown and retakePhoto functions
   const startCountdown = () => {
     setCountdown(3);
     const countdownInterval = setInterval(() => {
@@ -67,21 +66,32 @@ export default function CameraPage() {
     setPhoto(null);
   };
 
-  const handleSharePhoto = async () => {
+  // New function to save photo data
+  const savePhotoData = async () => {
     setIsSending(true);
-    setShareMessage('Sending photo...');
+    setShareMessage('Saving photo...');
     
     try {
-      // Get the email from localStorage
-      const userEmail = localStorage.getItem('userEmail');
+      // Get existing photos from storage or initialize empty array
+      const existingData = JSON.parse(localStorage.getItem('photoBoothData') || '[]');
       
-      // For now, we'll just simulate sending
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Add new photo data
+      const newPhotoData = {
+        id: Date.now(),
+        email: email,
+        photoUrl: photo,
+        timestamp: new Date().toISOString(),
+        sent: false
+      };
       
-      setShareMessage('Photo sent! Check your email.');
+      // Save to storage
+      localStorage.setItem('photoBoothData', JSON.stringify([...existingData, newPhotoData]));
+      
+      setShareMessage('Photo saved! We\'ll email it to you after the event.');
       setTimeout(() => setShareMessage(''), 3000);
     } catch (error) {
-      setShareMessage('Error sending photo. Please try again.');
+      console.error('Save error:', error);
+      setShareMessage('Error saving photo. Please try again.');
     } finally {
       setIsSending(false);
     }
@@ -169,38 +179,21 @@ export default function CameraPage() {
             </button>
           ) : (
             <>
+              {/* Share Button - This saves the photo with email */}
               <button 
                 className="w-full bg-green-500 text-white p-4 rounded-lg hover:bg-green-600 transition"
-                onClick={async () => {
-                  setIsSending(true);
-                  setShareMessage('Sending photo...');
-                  await new Promise(resolve => setTimeout(resolve, 1500));
-                  setShareMessage('Photo sent! Check your email.');
-                  setIsSending(false);
-                  setTimeout(() => setShareMessage(''), 3000);
-                }}
+                onClick={savePhotoData}
                 disabled={isSending}
               >
-                {isSending ? 'Sending...' : 'Email Photo'}
+                {isSending ? 'Sharing...' : 'Share'}
               </button>
 
-              <button 
-                className="w-full bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition"
-                onClick={() => {
-                  const link = document.createElement('a');
-                  link.download = 'photo-booth-magnet.jpg';
-                  link.href = photo;
-                  link.click();
-                }}
-              >
-                Download Photo
-              </button>
-
+              {/* Done Button - This returns to camera */}
               <button 
                 className="w-full bg-gray-500 text-white p-4 rounded-lg hover:bg-gray-600 transition"
                 onClick={retakePhoto}
               >
-                Retake Photo
+                Done
               </button>
 
               {shareMessage && (
