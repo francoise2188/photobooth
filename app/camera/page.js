@@ -134,36 +134,65 @@ export default function CameraPage() {
           <p className="text-gray-600">Logged in as: {email}</p>
         </div>
 
-        {/* Camera Container with Guide Overlay */}
-        <div className="relative aspect-square bg-black rounded-lg overflow-hidden">
-          {!photo ? (
-            <div className="relative w-full h-full">
-              {/* Video Feed */}
+        {/* Camera Container with fixed width */}
+        <div style={{
+          width: '100%',
+          maxWidth: '400px',
+          aspectRatio: '1/1',
+          position: 'relative',
+          backgroundColor: 'black',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          margin: '0 auto'
+        }}>
+          {!photo && (
+            <>
               <video 
                 ref={videoRef}
                 autoPlay 
                 playsInline
                 muted
-                className="absolute inset-0 w-full h-full object-cover"
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
               />
               
-              {/* Safe Zone Guide */}
-              <div className="absolute inset-0 border-2 border-white border-opacity-20 m-4 pointer-events-none" />
-              
-              {/* Countdown */}
               {countdown && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
-                  <span className="text-white text-[180px] font-bold">
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: 'rgba(0,0,0,0.3)'
+                }}>
+                  <span style={{
+                    color: 'white',
+                    fontSize: '150px',
+                    fontWeight: 'bold',
+                    textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+                  }}>
                     {countdown}
                   </span>
                 </div>
               )}
-            </div>
-          ) : (
+            </>
+          )}
+          
+          {photo && (
             <img 
               src={photo} 
               alt="Captured photo" 
-              className="w-full h-full object-cover"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
             />
           )}
         </div>
