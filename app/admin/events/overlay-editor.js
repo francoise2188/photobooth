@@ -1,95 +1,153 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 export default function OverlayEditor() {
-  const [overlays, setOverlays] = useState([
-    // Test border
-    {
-      id: 'test-border',
-      type: 'border',
-      src: '', // We'll add a test image soon
-      position: { x: 0, y: 0 },
-      size: { width: 600, height: 600 },
-      zIndex: 1
-    },
-    // Test logo
-    {
-      id: 'test-logo',
-      type: 'logo',
-      src: '', // We'll add a test image soon
-      position: { x: 20, y: 20 },
-      size: { width: 100, height: 100 },
-      zIndex: 2
-    }
-  ]);
+  const [overlayImage, setOverlayImage] = useState(null);
+  const fileInputRef = useRef(null);
+  const videoRef = useRef(null);
 
-  // Add a simple test image upload
-  const handleTestUpload = (e) => {
+  useEffect(() => {
+    async function setupCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
+        });
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+      }
+    }
+
+    setupCamera();
+
+    return () => {
+      if (videoRef.current?.srcObject) {
+        const tracks = videoRef.current.srcObject.getTracks();
+        tracks.forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const handleUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       const reader = new FileReader();
       reader.onload = (e) => {
-        setOverlays([
-          ...overlays,
-          {
-            id: Date.now(),
-            type: 'image',
-            src: e.target.result,
-            position: { x: 0, y: 0 },
-            size: { width: 200, height: 200 },
-            zIndex: overlays.length + 1
-          }
-        ]);
+        setOverlayImage(e.target.result);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  // Save overlay
+  const saveOverlay = () => {
+    if (overlayImage) {
+      localStorage.setItem('photoBoothOverlay', overlayImage);
+      alert('Overlay saved!');
+    }
+  };
+
+  // Load saved overlay
+  const loadSavedOverlay = () => {
+    const saved = localStorage.getItem('photoBoothOverlay');
+    if (saved) {
+      setOverlayImage(saved);
+    }
+  };
+
   return (
-    <div className="p-4 bg-gray-100 min-h-screen">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl font-bold mb-4">Overlay Editor</h1>
         
-        {/* Simple upload test */}
-        <div className="mb-4 p-4 bg-white rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-2">Upload Test Overlay</h2>
-          <input 
+        {/* Controls */}
+        <div className="mb-4 flex gap-2 flex-wrap">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+          >
+            Upload Overlay
+          </button>
+          <button
+            onClick={saveOverlay}
+            className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
+          >
+            Save Changes
+          </button>
+          <button
+            onClick={loadSavedOverlay}
+            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+          >
+            Load Saved
+          </button>
+          <input
+            ref={fileInputRef}
             type="file"
             accept="image/png"
-            onChange={handleTestUpload}
-            className="block w-full p-2 border rounded"
+            onChange={handleUpload}
+            className="hidden"
           />
         </div>
 
-        {/* Preview Area */}
-        <div className="bg-white p-4 rounded-lg shadow">
-          <div className="relative w-[600px] h-[600px] border-2 border-gray-300 mx-auto">
-            {overlays.map(overlay => (
-              <div
-                key={overlay.id}
-                className="absolute border border-dashed border-blue-400"
+        {/* Camera Preview Container */}
+        <div className="bg-black rounded-lg overflow-hidden">
+          <div style={{
+            width: '100%',
+            maxWidth: '600px',
+            aspectRatio: '1/1',
+            position: 'relative',
+            margin: '0 auto'
+          }}>
+            {/* Camera Feed */}
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                position: 'absolute',
+                top: 0,
+                left: 0
+              }}
+            />
+
+            {/* Overlay Layer */}
+            {overlayImage && (
+              <img
+                src={overlayImage}
+                alt="Overlay"
                 style={{
-                  left: overlay.position.x,
-                  top: overlay.position.y,
-                  width: overlay.size.width,
-                  height: overlay.size.height,
-                  zIndex: overlay.zIndex
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  pointerEvents: 'none'
                 }}
-              >
-                {overlay.src && (
-                  <img 
-                    src={overlay.src} 
-                    alt=""
-                    className="w-full h-full object-contain"
-                  />
-                )}
-              </div>
-            ))}
+              />
+            )}
           </div>
         </div>
+
+        {/* Clear Overlay Button */}
+        {overlayImage && (
+          <button
+            onClick={() => setOverlayImage(null)}
+            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          >
+            Clear Overlay
+          </button>
+        )}
       </div>
     </div>
   );
 }
-
