@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 
-export default function CameraPage() {
+export default function CameraPage({ userEmail }) {
   const videoRef = useRef(null);
   const [photo, setPhoto] = useState(null);
   const [countdown, setCountdown] = useState(null);
@@ -56,16 +56,31 @@ export default function CameraPage() {
     }, 1000);
   };
 
-  // Take photo function
+  // Update takePhoto function for high quality capture
   const takePhoto = () => {
     if (videoRef.current) {
       const video = videoRef.current;
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      
+      // Set canvas size for 2x2 inch photo at 300 DPI
+      canvas.width = 600;  // 2 inches * 300 DPI
+      canvas.height = 600; // 2 inches * 300 DPI
+      
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      setPhoto(canvas.toDataURL('image/jpeg'));
+      
+      // Calculate dimensions to maintain aspect ratio
+      const size = Math.min(video.videoWidth, video.videoHeight);
+      const startX = (video.videoWidth - size) / 2;
+      const startY = (video.videoHeight - size) / 2;
+      
+      // Draw the square photo
+      ctx.drawImage(
+        video,
+        startX, startY, size, size,    // Source (crop to square)
+        0, 0, canvas.width, canvas.height  // Destination (600x600)
+      );
+
+      setPhoto(canvas.toDataURL('image/jpeg', 0.95)); // High quality JPEG
     }
   };
 
@@ -74,6 +89,40 @@ export default function CameraPage() {
     setPhoto(null);
     // Restart camera
     await startCamera();
+  };
+
+  // Update the savePhoto function to use the real email
+  const savePhoto = async () => {
+    if (!photo) return;
+
+    try {
+      console.log('Saving photo for email:', userEmail); // Add this log
+
+      const response = await fetch('/api/photos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          photo: photo,
+          email: userEmail  // Use the real email instead of test@example.com
+        })
+      });
+
+      const result = await response.json();
+      console.log('Server response:', result);
+      
+      if (result.success) {
+        console.log('Photo saved successfully for:', userEmail);
+        await retakePhoto();
+      } else {
+        throw new Error(result.message);
+      }
+
+    } catch (error) {
+      console.error('Error saving photo:', error);
+      alert('Failed to save photo. Please try again.');
+    }
   };
 
   return (
@@ -172,6 +221,7 @@ export default function CameraPage() {
                 Retake Photo
               </button>
               <button 
+                onClick={savePhoto}
                 className="w-full bg-green-500 text-white p-4 rounded-lg hover:bg-green-600"
               >
                 Save Photo
