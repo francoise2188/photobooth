@@ -2,11 +2,99 @@
 
 import { useState, useRef, useEffect } from 'react';
 
+// Add these functions at the top with your other imports
+const shareToInstagram = async (photoUrl) => {
+  // Instagram sharing logic
+  try {
+    if (navigator.share) {
+      await navigator.share({
+        title: 'My Photo Booth Picture',
+        text: 'Check out my photo booth picture!',
+        url: photoUrl
+      });
+    } else {
+      // Fallback for desktop
+      window.open('https://instagram.com', '_blank');
+    }
+  } catch (error) {
+    console.error('Error sharing:', error);
+  }
+};
+
+const shareToFacebook = async (photoUrl) => {
+  // Facebook sharing logic
+  try {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(photoUrl)}`, '_blank');
+  } catch (error) {
+    console.error('Error sharing:', error);
+  }
+};
+
+const saveToDevice = async (photoUrl) => {
+  try {
+    const link = document.createElement('a');
+    link.href = photoUrl;
+    link.download = 'photobooth-picture.jpg';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error saving:', error);
+  }
+};
+
+const finishAndSubmit = async () => {
+  // Final submission to your system
+  try {
+    await savePhoto(); // Your existing save function
+    // Redirect to thank you page or reset
+    window.location.href = '/thank-you';
+  } catch (error) {
+    console.error('Error finishing:', error);
+  }
+};
+
+// First, add this CSS at the top of your file
+const overlayStyles = {
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  zIndex: 9999
+};
+
+const numberStyles = {
+  fontSize: '200px',
+  color: 'white',
+  fontWeight: 'bold'
+};
+
+// Then in your component, add this new Countdown component
+const Countdown = ({ number }) => {
+  if (number === null) return null;
+  
+  return (
+    <div style={overlayStyles}>
+      <div style={numberStyles}>
+        {number}
+      </div>
+    </div>
+  );
+};
+
 export default function CameraComponent({ userEmail }) {
   const videoRef = useRef(null);
   const [photo, setPhoto] = useState(null);
-  const [countdown, setCountdown] = useState(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [countdownNumber, setCountdownNumber] = useState(null);
+
+  // Add this right after your useState declarations
+  console.log('Countdown number:', countdownNumber); // Debug log
 
   // Function to start camera
   const startCamera = async () => {
@@ -39,18 +127,18 @@ export default function CameraComponent({ userEmail }) {
     };
   }, []);
 
-  // Start countdown and take photo
+  // Add this function right after your useEffect hook
   const startCountdown = () => {
     let count = 3;
-    setCountdown(count);
-    
-    const countdownInterval = setInterval(() => {
-      count -= 1;
+    setCountdownNumber(count);
+
+    const timer = setInterval(() => {
+      count--;
       if (count > 0) {
-        setCountdown(count);
+        setCountdownNumber(count);
       } else {
-        clearInterval(countdownInterval);
-        setCountdown(null);
+        clearInterval(timer);
+        setCountdownNumber(null);
         takePhoto();
       }
     }, 1000);
@@ -125,53 +213,91 @@ export default function CameraComponent({ userEmail }) {
   return (
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-2xl mx-auto">
-        {/* Status message */}
-        <div className="mb-4 text-center">
-          {!cameraActive && (
-            <p className="text-red-500">
-              Camera initializing... Please wait or check permissions.
-            </p>
-          )}
+        {/* Debug info */}
+        <div className="bg-yellow-200 p-4 mb-4">
+          Countdown active: {countdownNumber !== null ? 'YES' : 'NO'}
+          <br />
+          Current number: {countdownNumber}
         </div>
 
-        <div className="bg-black rounded-lg overflow-hidden">
-          <div style={{
-            width: '100%',
-            maxWidth: '600px',
-            aspectRatio: '1/1',
-            position: 'relative',
-            margin: '0 auto'
-          }}>
-            {/* Camera Feed or Photo */}
-            {!photo ? (
+        {/* Camera/Photo Container */}
+        <div className="relative bg-black rounded-lg overflow-hidden">
+          {photo ? (
+            <img 
+              src={photo} 
+              alt="Captured photo"
+              className="w-full aspect-square object-cover"
+            />
+          ) : (
+            <div className="relative w-full aspect-square">
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
+                className="w-full h-full object-cover"
                 onPlay={() => setCameraActive(true)}
               />
-            ) : (
-              <img 
-                src={photo} 
-                alt="Captured photo"
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-              />
-            )}
+              {/* Test overlay */}
+              <div className="absolute inset-0 bg-red-500 opacity-50">
+                <div className="flex items-center justify-center h-full">
+                  <span className="text-[200px] text-white">
+                    TEST
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
-            {/* Countdown Overlay */}
-            {countdown && (
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0
+        {/* Buttons */}
+        <div className="mt-4 space-y-2">
+          {photo ? (
+            <>
+              <button 
+                onClick={retakePhoto}
+                className="w-full bg-gray-500 text-white p-4 rounded-lg hover:bg-gray-600"
+              >
+                Retake Photo
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button 
+                  onClick={() => shareToInstagram(photo)}
+                  className="bg-purple-500 text-white p-4 rounded-lg hover:bg-purple-600"
+                >
+                  Share to Instagram
+                </button>
+                <button 
+                  onClick={() => shareToFacebook(photo)}
+                  className="bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600"
+                >
+                  Share to Facebook
+                </button>
+              </div>
+              <button 
+                onClick={() => saveToDevice(photo)}
+                className="w-full bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600"
+              >
+                Save to Device
+              </button>
+              <button 
+                onClick={savePhoto}
+                className="w-full bg-green-500 text-white p-4 rounded-lg hover:bg-green-600"
+              >
+                Done
+              </button>
+            </>
+          ) : (
+            <button 
+              onClick={startCountdown}
+              disabled={!cameraActive}
+              className="w-full bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
+              Take Photo
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
