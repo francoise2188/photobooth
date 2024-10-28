@@ -4,25 +4,40 @@ import { useState, useRef, useEffect } from 'react';
 
 export default function CameraPage() {
   const videoRef = useRef(null);
+  const streamRef = useRef(null); // Add this to store stream reference
   const [countdown, setCountdown] = useState(null);
   const [photo, setPhoto] = useState(null);
 
+  const startCamera = async () => {
+    try {
+      // Stop any existing stream
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false
+      });
+      
+      streamRef.current = stream; // Store stream reference
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  };
+
   useEffect(() => {
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (err) {
-        console.error("Error:", err);
+    startCamera();
+    
+    // Cleanup function
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
-
-    startCamera();
   }, []);
 
   const startCountdown = () => {
@@ -62,11 +77,17 @@ export default function CameraPage() {
       );
 
       setPhoto(canvas.toDataURL('image/jpeg', 0.95));
+      
+      // Stop the camera stream when photo is taken
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
     }
   };
 
-  const retakePhoto = () => {
+  const retakePhoto = async () => {
     setPhoto(null);
+    await startCamera(); // Restart the camera
   };
 
   return (
@@ -90,23 +111,10 @@ export default function CameraPage() {
                   className="w-full h-full object-cover"
                 />
                 {countdown !== null && (
-                  <div 
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      backgroundColor: 'rgba(0,0,0,0.5)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '200px',
-                      color: 'white',
-                      zIndex: 50
-                    }}
-                  >
-                    {countdown}
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <span className="text-[200px] md:text-[300px] text-white font-bold">
+                      {countdown}
+                    </span>
                   </div>
                 )}
               </>
@@ -114,21 +122,33 @@ export default function CameraPage() {
           </div>
         </div>
         
-        <button 
-          onClick={() => startCountdown()}
-          className="mt-4 w-full bg-blue-500 text-white p-4 rounded-lg"
-        >
-          Take Photo
-        </button>
-        
-        {photo && (
-          <button 
-            onClick={() => retakePhoto()}
-            className="mt-4 w-full bg-red-500 text-white p-4 rounded-lg"
-          >
-            Retake Photo
-          </button>
-        )}
+        <div className="space-y-4 mt-4">
+          {!photo && (
+            <button 
+              onClick={startCountdown}
+              className="w-full bg-blue-500 text-white p-4 rounded-lg hover:bg-blue-600 transition"
+            >
+              Take Photo
+            </button>
+          )}
+          
+          {photo && (
+            <>
+              <button 
+                onClick={retakePhoto}
+                className="w-full bg-red-500 text-white p-4 rounded-lg hover:bg-red-600 transition"
+              >
+                Retake Photo
+              </button>
+              <button 
+                onClick={() => {/* Add save/share functionality */}}
+                className="w-full bg-green-500 text-white p-4 rounded-lg hover:bg-green-600 transition"
+              >
+                Save Photo
+              </button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
